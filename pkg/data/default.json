@@ -501,5 +501,13 @@
         "Function": "NewServer",
         "OnEnter": "KratosNewGRPCServiceOnEnter",
         "Path": "github.com/alibaba/opentelemetry-go-auto-instrumentation/pkg/rules/kratos/grpc"
+    },
+    {
+        "ImportPath": "github.com/songquanpeng/one-api/controller",
+        "Function": "GetAllChannels",
+        "ReceiverType": "*GetAllChannels",
+        "OnEnter": "getAllChannelsOnEnter",
+        "OnExit": "getAllChannelsOnExit",
+        "Path": "github.com/alibaba/opentelemetry-go-auto-instrumentation/pkg/rules/oneapi"
     }
 ]

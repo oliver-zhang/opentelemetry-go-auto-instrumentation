@@ -214,7 +214,8 @@ func BuildNetHttpServerOtelInstrumenter() *instrumenter.PropagatingFromUpstreamI
 	return builder.Init().SetSpanStatusExtractor(http.HttpServerSpanStatusExtractor[netHttpRequest, netHttpResponse]{Getter: serverGetter}).SetSpanNameExtractor(&http.HttpServerSpanNameExtractor[netHttpRequest, netHttpResponse]{Getter: serverGetter}).
 		SetSpanKindExtractor(&instrumenter.AlwaysServerExtractor[netHttpRequest]{}).
 		AddOperationListeners(http.HttpServerMetrics()).
-		AddAttributesExtractor(&http.HttpServerAttrsExtractor[netHttpRequest, netHttpResponse, netHttpServerAttrsGetter, netHttpServerAttrsGetter, netHttpServerAttrsGetter]{Base: commonExtractor, NetworkExtractor: networkExtractor, UrlExtractor: urlExtractor}).BuildPropagatingFromUpstreamInstrumenter(func(n netHttpRequest) propagation.TextMapCarrier {
+		AddAttributesExtractor(&http.HttpServerAttrsExtractor[netHttpRequest, netHttpResponse, netHttpServerAttrsGetter, netHttpServerAttrsGetter, netHttpServerAttrsGetter]{Base: commonExtractor, NetworkExtractor: networkExtractor, UrlExtractor: urlExtractor}).
+		BuildPropagatingFromUpstreamInstrumenter(func(n netHttpRequest) propagation.TextMapCarrier {
 		if n.header == nil {
 			return nil
 		}

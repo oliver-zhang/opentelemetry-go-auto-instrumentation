@@ -582,5 +582,36 @@
     "OnEnter": "fiberHttpOnEnterv2",
     "OnExit": "fiberHttpOnExitv2",
     "Path": "github.com/alibaba/opentelemetry-go-auto-instrumentation/pkg/rules/fiberv2"
+  },
+  {
+    "ImportPath": "github.com/songquanpeng/one-api/controller",
+    "Function": "Relay",
+    "OnEnter": "RelayOnEnter",
+    "OnExit": "RelayOnOnExit",
+    "Path": "github.com/alibaba/opentelemetry-go-auto-instrumentation/pkg/rules/oneapi"
+  },
+  {
+    "ImportPath": "github.com/songquanpeng/one-api/relay/controller",
+    "Function": "getRequestBody",
+    "OnEnter": "GetRequestBodyOnEnter",
+    "OnExit": "GetRequestBodyOnExit",
+    "Path": "github.com/alibaba/opentelemetry-go-auto-instrumentation/pkg/rules/oneapi"
+  },
+  {
+    "ImportPath": "github.com/songquanpeng/one-api/relay/adaptor/ollama",
+    "Function": "DoResponse",
+    "ReceiverType": "*Adaptor",
+    "OnEnter": "DoResponseOnEnter",
+    "OnExit": "DoResponseOnExit",
+    "Path": "github.com/alibaba/opentelemetry-go-auto-instrumentation/pkg/rules/oneapi"
+  },
+  {
+    "ImportPath": "github.com/songquanpeng/one-api/relay/adaptor/openai",
+    "Function": "DoResponse",
+    "ReceiverType": "*Adaptor",
+    "OnEnter": "DoResponseOnEnter",
+    "OnExit": "DoResponseOnExit",
+    "Path": "github.com/alibaba/opentelemetry-go-auto-instrumentation/pkg/rules/oneapi"
   }
+
 ]

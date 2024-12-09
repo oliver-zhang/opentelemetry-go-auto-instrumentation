@@ -4,29 +4,35 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
+	"io"
+	"net/http"
+
 	"github.com/alibaba/opentelemetry-go-auto-instrumentation/pkg/api"
 	"github.com/gin-gonic/gin"
+	"github.com/songquanpeng/one-api/common/ctxkey"
 	"github.com/songquanpeng/one-api/relay/adaptor"
 	"github.com/songquanpeng/one-api/relay/meta"
 	"github.com/songquanpeng/one-api/relay/model"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
-	"io"
-	"net/http"
 )
 
 func RelayOnEnter(call api.CallContext, c *gin.Context) {
 	parentContext := c.Request.Context()
-	fmt.Printf("Pelay On Enter parentContext: %+v\n", parentContext)
-	//currentSpan := trace.SpanFromContext(parentContext)
-	//currentSpan.SetAttributes(attribute.String("relay.key", "relay.value"))
-	//fmt.Printf("Pelay On Enter currentSpan: %+v\n", currentSpan)
 	ctx := BuildOneApiInstrumenter().Start(parentContext, oneApiRequest{})
 	c.Set("ctx", ctx)
 	data := make(map[string]interface{}, 1)
 	data["ctx"] = ctx
 	call.SetData(data)
+	currentSpan := trace.SpanFromContext(ctx)
+	currentSpan.SetAttributes(attribute.String("oneapi.tenant", c.GetHeader("APIKey")))
+	currentSpan.SetAttributes(attribute.Int("oneapi.channel.type", c.GetInt(ctxkey.Channel)))
+	currentSpan.SetAttributes(attribute.Int("oneapi.channel.id", c.GetInt(ctxkey.ChannelId)))
+	currentSpan.SetAttributes(attribute.String("oneapi.channel.name", c.GetString(ctxkey.ChannelName)))
+	currentSpan.SetAttributes(attribute.Int("oneapi.token.id", c.GetInt(ctxkey.TokenId)))
+	currentSpan.SetAttributes(attribute.String("oneapi.token.name", c.GetString(ctxkey.TokenName)))
+	currentSpan.SetAttributes(attribute.String("oneapi.group", c.GetString(ctxkey.Group)))
+	currentSpan.SetAttributes(attribute.String("oneapi.origin.model.name", c.GetString(ctxkey.RequestModel)))
 }
 
 func RelayOnOnExit(call api.CallContext) {
@@ -39,51 +45,78 @@ func RelayOnOnExit(call api.CallContext) {
 }
 
 func GetRequestBodyOnEnter(call api.CallContext, c *gin.Context, meta *meta.Meta, textRequest *model.GeneralOpenAIRequest, adaptor adaptor.Adaptor) {
-	fmt.Printf("Relay get request body on enter: %+v, %+v, %+v\n", meta, textRequest, adaptor)
-	ctx := c.Value("ctx")
-	fmt.Printf("Relay get request body ctx is :%v\n", ctx)
-	currentSpan := trace.SpanFromContext(ctx.(context.Context))
-	originalRequestBody, _ := json.Marshal(textRequest)
-	currentSpan.SetAttributes(attribute.String("originalRequestBody", string(originalRequestBody)))
-	targetRequest, _ := adaptor.ConvertRequest(c, meta.Mode, textRequest)
-	targetRequestBody, _ := json.Marshal(targetRequest)
-	currentSpan.SetAttributes(attribute.String("targetRequestBody", string(targetRequestBody)))
-	data := make(map[string]interface{}, 1)
-	data["ctx"] = ctx
-	call.SetData(data)
+	ctxValue := c.Value("ctx")
+	if ctx, ok := ctxValue.(context.Context); ok {
+		currentSpan := trace.SpanFromContext(ctx)
+		originalRequestBody, _ := json.Marshal(textRequest)
+		currentSpan.SetAttributes(attribute.String("original.http.request.body", string(originalRequestBody)))
+		targetRequest, _ := adaptor.ConvertRequest(c, meta.Mode, textRequest)
+		targetRequestBody, _ := json.Marshal(targetRequest)
+		currentSpan.SetAttributes(attribute.String("target.http.request.body", string(targetRequestBody)))
+	}
+
 }
 
-func GetRequestBodyOnExit(call api.CallContext, reader io.Reader, err error) {
+func DoResponseOnEnter(call api.CallContext, adaptor interface{}, c *gin.Context, resp *http.Response, meta *meta.Meta) {
+	ctxValue := c.Value("ctx")
+	if ctx, ok := ctxValue.(context.Context); ok {
+		data := make(map[string]interface{}, 1)
+		data["ctx"] = ctx
+		call.SetData(data)
+		if meta.IsStream {
+			return
+		}
+		responseBody, _ := io.ReadAll(resp.Body)
+		_ = resp.Body.Close()
+		currentSpan := trace.SpanFromContext(ctx)
+		currentSpan.SetAttributes(attribute.String("http.response.body", string(responseBody)))
+		resp.Body = io.NopCloser(bytes.NewBuffer(responseBody))
+	}
+}
 
+func DoResponseOnExit(call api.CallContext, usage *model.Usage, err *model.ErrorWithStatusCode) {
 	data, ok := call.GetData().(map[string]interface{})
 	if !ok || data == nil || data["ctx"] == nil {
 		return
 	}
-	//ctx := data["ctx"].(context.Context)
-	//requestBody, _ := io.ReadAll(reader)
-	//err = reader.Close()
-	//if err != nil {
-	//}
-	//reader = io.NopCloser(bytes.NewBuffer(requestBody))
-	//currentSpan := trace.SpanFromContext(ctx)
-	//currentSpan.SetAttributes(attribute.String("requestBody", string(requestBody)))
-	fmt.Println("relay get request body on exit")
-}
-
-func DoResponseOnEnter(call api.CallContext, adaptor interface{}, c *gin.Context, resp *http.Response, meta *meta.Meta) {
-	fmt.Printf("relay do response on enter: %+v, %+v, %+v\n", c, resp, meta)
-	ctx := c.Value("ctx").(context.Context)
-	responseBody, _ := io.ReadAll(resp.Body)
-	_ = resp.Body.Close()
+	ctx := data["ctx"].(context.Context)
 	currentSpan := trace.SpanFromContext(ctx)
-	currentSpan.SetAttributes(attribute.String("responseBody", string(responseBody)))
-	resp.Body = io.NopCloser(bytes.NewBuffer(responseBody))
+	if err != nil {
+		currentSpan.SetAttributes(attribute.String("exception.message", err.Message))
+		currentSpan.SetAttributes(attribute.String("exception.type", err.Type))
+		currentSpan.SetAttributes(attribute.Int("status.code", err.StatusCode))
+	} else {
+		currentSpan.SetAttributes(attribute.Int("oneapi.completion.tokens", usage.CompletionTokens))
+		currentSpan.SetAttributes(attribute.Int("oneapi.prompt.tokens", usage.PromptTokens))
+	}
 }
 
-func DoResponseOnExit(call api.CallContext, usage *model.Usage, err *model.ErrorWithStatusCode) {
-	fmt.Printf("relay do response  on exit %+v,%+v/n", usage, err)
-	//c := call.GetParam(0).(gin.Context)
-	//ctx := c.Value("ctx").(context.Context)
-	//currentSpan := trace.SpanFromContext(ctx)
-	//currentSpan.SetAttributes()
+func StreamHandlerOnEnter(call api.CallContext, c *gin.Context, resp *http.Response, relayMode int) {
+	ctxValue := c.Value("ctx")
+	if ctx, ok := ctxValue.(context.Context); ok {
+		data := make(map[string]interface{}, 1)
+		data["ctx"] = ctx
+		call.SetData(data)
+	}
+}
+
+func StreamHandlerOnExit(call api.CallContext, err *model.ErrorWithStatusCode, responseText string, usage *model.Usage) {
+	data, ok := call.GetData().(map[string]interface{})
+	if !ok || data == nil || data["ctx"] == nil {
+		return
+	}
+	if err == nil {
+		ctx := data["ctx"].(context.Context)
+		currentSpan := trace.SpanFromContext(ctx)
+		currentSpan.SetAttributes(attribute.String("http.response.body", responseText))
+	}
+
+}
+
+func StringDataOnEnter(call api.CallContext, c *gin.Context, str string) {
+	ctxValue := c.Value("ctx")
+	if ctx, ok := ctxValue.(context.Context); ok {
+		currentSpan := trace.SpanFromContext(ctx)
+		currentSpan.AddEvent("response.stream", trace.WithAttributes(attribute.String("response.stream.text", str)))
+	}
 }

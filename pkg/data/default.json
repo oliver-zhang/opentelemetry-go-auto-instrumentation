@@ -594,7 +594,6 @@
     "ImportPath": "github.com/songquanpeng/one-api/relay/controller",
     "Function": "getRequestBody",
     "OnEnter": "GetRequestBodyOnEnter",
-    "OnExit": "GetRequestBodyOnExit",
     "Path": "github.com/alibaba/opentelemetry-go-auto-instrumentation/pkg/rules/oneapi"
   },
   {
@@ -612,6 +611,18 @@
     "OnEnter": "DoResponseOnEnter",
     "OnExit": "DoResponseOnExit",
     "Path": "github.com/alibaba/opentelemetry-go-auto-instrumentation/pkg/rules/oneapi"
+  },
+  {
+    "ImportPath": "github.com/songquanpeng/one-api/relay/adaptor/openai",
+    "Function": "StreamHandler",
+    "OnEnter": "StreamHandlerOnEnter",
+    "OnExit": "StreamHandlerOnExit",
+    "Path": "github.com/alibaba/opentelemetry-go-auto-instrumentation/pkg/rules/oneapi"
+  },
+  {
+    "ImportPath": "github.com/songquanpeng/one-api/common/render",
+    "Function": "StringData",
+    "OnEnter": "StringDataOnEnter",
+    "Path": "github.com/alibaba/opentelemetry-go-auto-instrumentation/pkg/rules/oneapi"
   }
-
 ]
